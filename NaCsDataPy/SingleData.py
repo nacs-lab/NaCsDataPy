@@ -42,7 +42,7 @@ class SingleData:
             self.master_fname = os.path.join(prefix, full_filestr)
         print('Loading ' + self.master_fname)
         try:
-            self.data : h5py._hl.files.File = h5py.File(self.master_fname)
+            self.data_file : h5py._hl.files.File = h5py.File(self.master_fname)
         except FileNotFoundError:
             print('File not found.')
             raise
@@ -58,9 +58,9 @@ class SingleData:
             print('Unknown error when opening names file')
             raise
 
-        self.data = utils.cvt_to_dict(self.master_fname)
+        self.data = utils.cvt_to_dict(self.data_file)
         
-        if self.data['Scan']['Version'] != 4:
+        if self.data['Scan']['version'] != 4:
             print('Only version 4 supported for now')
             raise
         self.num_sites = int(self.data['Scan']['NumSites'])

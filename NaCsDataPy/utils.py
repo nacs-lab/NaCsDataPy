@@ -117,7 +117,6 @@ def get_scangroup(file: h5py._hl.files.File):
         Raises:
             None
     """
-    scgrp = file["Scan/ScanGroup"]
     # The six fields we need to extract are 'base', 'runparam', 'scans', 'use_var_base', 'use_var_scans', 'version'
     # The 'base' has fields 'params' and 'vars', indicating the fixed parameters and scannable parameters respectively of the base of the ScanGroup
     # The 'runparam' is the special structure that contains the run parameters
