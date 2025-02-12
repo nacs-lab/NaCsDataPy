@@ -246,7 +246,7 @@ class SingleData:
             if any(seq_idxs > self.log_files_cache[-1]):
                 raise Exception('Seq Idx out of range. Total: ' + str(self.log_files_cache[-1]) + ' sequences.')
             # Here, we assume the cache is already filled
-            for idx in range(self.summary_fnames):
+            for idx in range(len(self.summary_fnames)):
                 # Check if current file is relevant from the cache.
                 seq_idx_logicals = seq_idxs > self.log_files_cache[idx] & seq_idxs <= self.log_files_cache[idx + 1] # bool array of which seq_idxs are relevant here.
                 idxs_to_fill = seq_idxs.nonzero()[0] # find which ones are nonzero
