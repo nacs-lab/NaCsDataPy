@@ -31,11 +31,15 @@ class SingleData:
                 TODO
 
         """
-        dirstr = 'data_' + datestr + '_' + timestr
-        filestr = dirstr + '.mat'
-        full_filestr = os.path.join(datestr, dirstr)
-        full_filestr = os.path.join(full_filestr, filestr)
-        self.master_fname = os.path.join(prefix, full_filestr)
+        # Allow for a full path specification
+        if datestr.endswith('.mat'):
+            self.master_fname = datestr
+        else:
+            dirstr = 'data_' + datestr + '_' + timestr
+            filestr = dirstr + '.mat'
+            full_filestr = os.path.join(datestr, dirstr)
+            full_filestr = os.path.join(full_filestr, filestr)
+            self.master_fname = os.path.join(prefix, full_filestr)
         print('Loading ' + self.master_fname)
         try:
             self.data : h5py._hl.files.File = h5py.File(self.master_fname)
