@@ -116,7 +116,8 @@ class SingleData:
         # seq_idxs are sequence indices, 1 indexed
         # img_idxs are the images that are wanted. A negative number indicates that you want to apply the logical NOT.
         self._load_logicals(seq_idxs)
-
+        if isinstance(img_idxs, list):
+            img_idxs = np.array(img_idxs)
 
         if len(seq_idxs) == 0 and len(img_idxs) == 0:
             return self.logicals, self.param_list, self.seq_idxs
@@ -129,12 +130,12 @@ class SingleData:
             return ret_logs, self.param_list, self.seq_idxs
         if isinstance(seq_idxs, list):
             seq_idxs = np.array(seq_idxs)
-        idxs = np.where(np.in1d(seq_idxs, self.seq_idxs))[0] # np.where returns a tuple
+        idxs =  np.array([np.nonzero(seq_idxs == x)[0][0] for x in self.seq_idxs]) 
         if len(img_idxs) == 0:
             return self.logicals[:,:,idxs], self.param_list[idxs], self.seq_idxs[idxs]
         else:
             abs_img_idxs = np.abs(img_idxs) - 1
-            ret_logs = self.logicals[abs_img_idxs,:,idxs]
+            ret_logs = self.logicals[abs_img_idxs,:,:]
             if any(img_idxs < 0):
                 mod_arr = ret_logs[abs_img_idxs[img_idxs < 0],:,:]
                 ret_logs[abs_img_idxs[img_idxs < 0],:,:] = np.where(mod_arr == 0, 1, 0)
@@ -151,12 +152,12 @@ class SingleData:
             abs_img_idxs = np.abs(img_idxs) - 1
             ret_signals = self.signals[abs_img_idxs,:,:]
             return ret_signals, self.param_list, self.seq_idxs
-        idxs = np.where(np.in1d(seq_idxs, self.seq_idxs))[0]
+        idxs =  np.array([np.nonzero(seq_idxs == x)[0][0] for x in self.seq_idxs])
         if len(img_idxs) == 0:
             return self.signals[:,:,idxs], self.param_list[idxs], self.seq_idxs[idxs]
         else:
             abs_img_idxs = np.abs(img_idxs) - 1
-            ret_signals = self.signals[abs_img_idxs,:,idxs]
+            ret_signals = self.signals[abs_img_idxs,:,:]
             return ret_signals[:,:, idxs], self.param_list[idxs], self.seq_idxs[idxs]
 
     def load(self, seq_idxs=-1):
@@ -200,6 +201,8 @@ class SingleData:
         if seq_idxs.ndim != 1:
             print('Seq Idxs need to be 1 dimensional')
             return
+        if any(seq_idxs <= 0):
+            raise Exception('Seq Idxs are positive! (They are 1 indexed)')
         seq_idxs = np.unique(seq_idxs)
         seq_idxs = np.setdiff1d(seq_idxs, self.seq_idxs) # This ensures we only load new sequences
         # We define lists where we will fill in information before concatenating with what we already have. This ensures atomicity.
@@ -236,7 +239,12 @@ class SingleData:
                 except Exception as e:
                     print('Unknown error when opening logical files')
                     return
+            self.log_files_cache = temp_log_files_cache
+            if any(seq_idxs > self.log_files_cache[-1]):
+                raise Exception('Seq Idx out of range. Total: ' + str(self.log_files_cache[-1]) + ' sequences.')
         else:
+            if any(seq_idxs > self.log_files_cache[-1]):
+                raise Exception('Seq Idx out of range. Total: ' + str(self.log_files_cache[-1]) + ' sequences.')
             # Here, we assume the cache is already filled
             for idx in range(self.summary_fnames):
                 # Check if current file is relevant from the cache.
@@ -291,6 +299,8 @@ class SingleData:
         if seq_idxs.ndim != 1:
             print('Seq Idxs need to be 1 dimensional')
             return
+        if any(seq_idxs <= 0):
+            raise Exception('Seq Idxs are positive! (They are 1 indexed)')
         seq_idxs = np.unique(seq_idxs)
         seq_idxs = np.setdiff1d(seq_idxs, self.seq_idxs_img) # This ensures we only load new sequences
         # We define lists where we will fill in information before concatenating with what we already have. This ensures atomicity.
@@ -327,7 +337,12 @@ class SingleData:
                 except Exception as e:
                     print('Unknown error when opening logical files')
                     return
+            self.img_files_cache = temp_img_files_cache
+            if any(seq_idxs > self.img_files_cache[-1]):
+                raise Exception('Seq Idx out of range. Total: ' + str(self.img_files_cache[-1]) + ' sequences.')
         else:
+            if any(seq_idxs > self.img_files_cache[-1]):
+                raise Exception('Seq Idx out of range. Total: ' + str(self.img_files_cache[-1]) + ' sequences.')
             # Here, we assume the cache is already filled
             for idx in range(self.img_fnames):
                 # Check if current file is relevant from the cache.
