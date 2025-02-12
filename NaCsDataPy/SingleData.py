@@ -83,7 +83,7 @@ class SingleData:
         """ 
             Function for when the object is deleted. We need to make sure the file is closed.
         """
-        self.data.close()
+        self.data_file.close()
         self.names_file.close()
 
     def setLoadStatus(self, level: LoadStatus):
@@ -117,6 +117,7 @@ class SingleData:
         # img_idxs are the images that are wanted. A negative number indicates that you want to apply the logical NOT.
         self._load_logicals(seq_idxs)
 
+
         if len(seq_idxs) == 0 and len(img_idxs) == 0:
             return self.logicals, self.param_list, self.seq_idxs
         if len(seq_idxs) == 0:
@@ -126,6 +127,8 @@ class SingleData:
                 mod_arr = ret_logs[np.where(img_idxs < 0),:,:]
                 ret_logs[np.where(img_idxs < 0),:,:] = np.where(mod_arr == 0, 1, 0)
             return ret_logs, self.param_list, self.seq_idxs
+        if isinstance(seq_idxs, list):
+            seq_idxs = np.array(seq_idxs)
         idxs = np.where(np.in1d(seq_idxs, self.seq_idxs))[0] # np.where returns a tuple
         if len(img_idxs) == 0:
             return self.logicals[:,:,idxs], self.param_list[idxs], self.seq_idxs[idxs]
@@ -192,6 +195,8 @@ class SingleData:
         # Error checking
         if len(seq_idxs) == 0:
             seq_idxs = np.array([i + 1 for i in range(self.num_seqs)])
+        if isinstance(seq_idxs, list):
+            seq_idxs = np.array(seq_idxs)
         if seq_idxs.ndim != 1:
             print('Seq Idxs need to be 1 dimensional')
             return
@@ -266,7 +271,7 @@ class SingleData:
             self.logicals = np.concatenate((self.logicals, temp_logicals), axis = 2)
             self.signals = np.concatenate((self.signals, temp_signals), axis = 2)
             self.param_list = np.concatenate((self.param_list, temp_params), axis = 0)
-            self.seq_idxs = np.concatenate(self.seq_idxs, seq_idxs)
+            self.seq_idxs = np.concatenate((self.seq_idxs, seq_idxs), axis = 0)
 
     def _load_imgs(self, seq_idxs : np.ndarray):
         """
@@ -351,4 +356,4 @@ class SingleData:
             self.imgs = temp_imgs
         else:
             self.imgs = np.concatenate((self.imgs, temp_logicals), axis = 3)
-            self.seq_idxs_img = np.concatenate(self.seq_idxs_img, seq_idxs)
+            self.seq_idxs_img = np.concatenate((self.seq_idxs_img, seq_idxs), axis = 0)
