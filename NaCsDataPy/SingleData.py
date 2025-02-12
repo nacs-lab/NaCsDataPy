@@ -126,7 +126,7 @@ class SingleData:
                 mod_arr = ret_logs[np.where(img_idxs < 0),:,:]
                 ret_logs[np.where(img_idxs < 0),:,:] = np.where(mod_arr == 0, 1, 0)
             return ret_logs, self.param_list, self.seq_idxs
-        idxs = np.where(np.in1d(seq_idxs, self.seq_idxs))
+        idxs = np.where(np.in1d(seq_idxs, self.seq_idxs))[0] # np.where returns a tuple
         if len(img_idxs) == 0:
             return self.logicals[:,:,idxs], self.param_list[idxs], self.seq_idxs[idxs]
         else:
@@ -148,7 +148,7 @@ class SingleData:
             abs_img_idxs = np.abs(img_idxs) - 1
             ret_signals = self.signals[abs_img_idxs,:,:]
             return ret_signals, self.param_list, self.seq_idxs
-        idxs = np.where(np.in1d(seq_idxs, self.seq_idxs))
+        idxs = np.where(np.in1d(seq_idxs, self.seq_idxs))[0]
         if len(img_idxs) == 0:
             return self.signals[:,:,idxs], self.param_list[idxs], self.seq_idxs[idxs]
         else:
