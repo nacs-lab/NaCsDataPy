@@ -207,7 +207,7 @@ class SingleData:
         # First, we fill the cache if not already filled. The cache is only not filled upon the very first call.
         if self.log_files_cache is None:
             temp_log_files_cache = [0]
-            for fname in self.img_fnames:
+            for fname in self.summary_fnames:
                 # construct the correct filenames
                 dirname = os.path.split(self.master_fname)[0]
                 full_fname = os.path.join(dirname, fname)
