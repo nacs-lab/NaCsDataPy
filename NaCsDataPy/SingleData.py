@@ -130,7 +130,7 @@ class SingleData:
             return ret_logs, self.param_list, self.seq_idxs
         if isinstance(seq_idxs, list):
             seq_idxs = np.array(seq_idxs)
-        idxs =  np.array([np.nonzero(seq_idxs == x)[0][0] for x in self.seq_idxs]) 
+        idxs =  np.array([np.nonzero(self.seq_idxs == x)[0][0] for x in seq_idxs]) 
         if len(img_idxs) == 0:
             return self.logicals[:,:,idxs], self.param_list[idxs], self.seq_idxs[idxs]
         else:
@@ -152,7 +152,7 @@ class SingleData:
             abs_img_idxs = np.abs(img_idxs) - 1
             ret_signals = self.signals[abs_img_idxs,:,:]
             return ret_signals, self.param_list, self.seq_idxs
-        idxs =  np.array([np.nonzero(seq_idxs == x)[0][0] for x in self.seq_idxs])
+        idxs =  np.array([np.nonzero(self.seq_idxs == x)[0][0] for x in seq_idxs])
         if len(img_idxs) == 0:
             return self.signals[:,:,idxs], self.param_list[idxs], self.seq_idxs[idxs]
         else:
@@ -248,7 +248,7 @@ class SingleData:
             # Here, we assume the cache is already filled
             for idx in range(len(self.summary_fnames)):
                 # Check if current file is relevant from the cache.
-                seq_idx_logicals = seq_idxs > self.log_files_cache[idx] & seq_idxs <= self.log_files_cache[idx + 1] # bool array of which seq_idxs are relevant here.
+                seq_idx_logicals = np.logical_and(seq_idxs > self.log_files_cache[idx], seq_idxs <= self.log_files_cache[idx + 1]) # bool array of which seq_idxs are relevant here.
                 idxs_to_fill = seq_idxs.nonzero()[0] # find which ones are nonzero
                 if len(idxs_to_fill) != 0:
                     # construct the correct filenames
