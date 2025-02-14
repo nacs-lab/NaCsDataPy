@@ -106,26 +106,57 @@ def cvt_ref_to_data(ref: h5py.h5r.Reference, file: h5py._hl.files.File):
         result = cvt_to_dict(file, ref_name)
     return result
 
-def get_scangroup(file: h5py._hl.files.File):
-    """
-        TODO
+def merge_dicts_with_lists(dict1, dict2):
+    merged = dict1.copy()  # Create a copy of dict1 to avoid modifying it
+    for key, value in dict2.items():
+        if key in merged and isinstance(merged[key], dict) and isinstance(value, dict):
+            merged[key] = merge_dicts_with_lists(merged[key], value)  # Recursively merge
+        elif key in merged and isinstance(merged[key], dict) and isinstance(value, list):
+            continue
+        elif key in merged and isinstance(merged[key], list) and isinstance(value, dict):
+            merged[key] = value # Always take the dict
+        elif key in merged and isinstance(merged[key], list) and isinstance(value, list):
+            merged[key] = merge_lists_with_dicts(merged[key], value)
+        else:
+            merged[key] = value  # Overwrite with dict2's value
+    return merged
 
-        Args:
-            TODO
-        Returns:
-            TODO
-        Raises:
-            None
-    """
-    # The six fields we need to extract are 'base', 'runparam', 'scans', 'use_var_base', 'use_var_scans', 'version'
-    # The 'base' has fields 'params' and 'vars', indicating the fixed parameters and scannable parameters respectively of the base of the ScanGroup
-    # The 'runparam' is the special structure that contains the run parameters
-    # The 'scans' is an array of structs containing the fields 'params' and 'vars', indicating the fixed parameters and scannable parameters specific to each scan
-    # We will ignore 'use_var_base' and 'use_var_scans' for now
-    # The 'version' is the version of the ScanGroup.
+def merge_lists_with_dicts(list1, list2):
+    final_list = list1.copy()
+    max_dict1 = len(list1)
+    max_dict2 = len(list2)
+    for i in range(max(max_dict1, max_dict2)):
+        if i >= max_dict1:
+            final_list[i] = list2[i]
+        elif i >= max_dict2:
+            continue # Don't do anything
+        else:
+            if isinstance(final_list[i], dict) and isinstance(list2[i], dict):
+                final_list[i] = merge_dicts_with_lists(final_list[i], list2[i])
+            elif isinstance(final_list[i], dict) and isinstance(list2[i], list):
+                # Keep the dict if there is one
+                continue
+            elif isinstance(final_list[i], list) and isinstance(list2[i], dict):
+                final_list[i] = list2[i]
+            elif isinstance(final_list[i], list) and isinstance(list2[i], list):
+                final_list[i] = merge_lists_with_dicts(final_list[i], list2[i])
+            else:
+                final_list[i] = list2[i]
+    return final_list
 
-    scgrp_out = dict()
-
-    # The easy one is runparam
-    scgrp_out.runparam = cvt_to_dict(file, "Scan/ScanGroup/runparam")
-
+def obtain_recursive_key_and_value(val, key_str = ""):
+    # This function assumes that it can be a nested dictionary, but only one key at each step.
+    # It returns the final value, and the key path to reach that value in string format.
+    if isinstance(val, dict):
+        keys = list(val.keys())
+        if len(keys) > 1:
+            print("Dictionary has more than one key at this level. Taking first key.")
+        sub_key = keys[0]
+        if key_str == "":
+            new_key_str = sub_key
+        else:
+            new_key_str = key_str + "." + sub_key
+        sub_val, sub_path = obtain_recursive_key_and_value(val[sub_key], new_key_str)
+        return sub_val, sub_path
+    else:
+        return val, key_str

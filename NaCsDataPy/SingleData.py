@@ -1,19 +1,8 @@
-from ast import Load
 import os
 import h5py
 import numpy as np
 
 import utils
-
-from enum import Enum
-
-class LoadStatus(Enum):
-    NoneLoaded = 0 # This is O(1) data, like averages
-    LogicalsLoaded = 1 # In particular, this is all the O(n) data except images
-    ImgLoaded = 2 # These are images
-    AllLoaded = 3 # Both images and logicals
-
-
 
 class SingleData:
     """
@@ -66,7 +55,6 @@ class SingleData:
         self.num_sites = int(self.data['Scan']['NumSites'])
         self.num_imgs = int(self.data['Scan']['NumImages'])
         self.num_seqs = int(self.data['Analysis']['SummaryData']['n_seq'])
-        self.load_status : LoadStatus = LoadStatus.NoneLoaded
         self.signals = None # numpy array
         self.logicals = None # numpy array
         self.imgs = None # numpy array
@@ -77,7 +65,7 @@ class SingleData:
         self.summary_fnames = utils.cvt_to_str(self.names_file, 'names/summary_fnames')
         self.log_files_cache = None # tracks which sequences are in which files
         self.img_files_cache = None
-        self.locked = False # Once any modification is made, then the loader will be locked to reduce confusion. 
+
 
     def __del__(self):
         """ 
@@ -85,32 +73,6 @@ class SingleData:
         """
         self.data_file.close()
         self.names_file.close()
-
-    def setLoadStatus(self, level: LoadStatus):
-        """
-            Function to set the LoadStatus of this object. Will reset the corresponding logicals and imgs arrays if the LoadStatus changes to one that no longer requires it
-
-            Args:
-                level: A LoadStatus.
-            Returns:
-                None
-            Raises:
-                None
-
-        """
-        if level is LoadStatus.NoneLoaded:
-            self.seq_idxs = None
-            self.logicals = None
-            self.imgs = None
-            self.load_status = LoadStatus.NoneLoaded
-        elif level is LoadStatus.LogicalsLoaded:
-            self.imgs = None
-            self.load_status = LoadStatus.LogicalsLoaded
-        elif level is LoadStatus.ImgLoaded:
-            self.logicals = None
-            self.load_status = LoadStatus.ImgLoaded
-        elif level is LoadStatus.AllLoaded:
-            self.load_status = LoadStatus.AllLoaded
 
     def get_logicals(self, seq_idxs=[], img_idxs=[]):
         # seq_idxs are sequence indices, 1 indexed
@@ -137,8 +99,8 @@ class SingleData:
             abs_img_idxs = np.abs(img_idxs) - 1
             ret_logs = self.logicals[abs_img_idxs,:,:]
             if any(img_idxs < 0):
-                mod_arr = ret_logs[abs_img_idxs[img_idxs < 0],:,:]
-                ret_logs[abs_img_idxs[img_idxs < 0],:,:] = np.where(mod_arr == 0, 1, 0)
+                mod_arr = ret_logs[np.where(img_idxs < 0),:,:]
+                ret_logs[np.where(img_idxs < 0),:,:] = np.where(mod_arr == 0, 1, 0)
             return ret_logs[:,:, idxs], self.param_list[idxs], self.seq_idxs[idxs]
         
     def get_signals(self, seq_idxs=[], img_idxs=[]):
@@ -159,28 +121,69 @@ class SingleData:
             abs_img_idxs = np.abs(img_idxs) - 1
             ret_signals = self.signals[abs_img_idxs,:,:]
             return ret_signals[:,:, idxs], self.param_list[idxs], self.seq_idxs[idxs]
+        
+    def get_scan_param(self, scan_idx, dim, var_idx):
+        # get a scan parameter for a scan_idx in the ScanGroup along dimension dim and variable var_idx
+        # Note, variables are specified in alphabetical order.
+        # Note, every index is 1 indexed
+        scgrp = self.data['Scan']['ScanGroup']
+        nscans = int(len(scgrp['scans']['baseidx']))
+        if scan_idx > nscans:
+            raise Exception('scan_idx out of range. Total: ' + str(nscans) + ' scans.')
+        this_scan = self._get_full_scan(scan_idx)
+        this_vars_dict = this_scan['vars']['params'] # All the parameters for a given scan dimension
+        if isinstance(this_vars_dict, dict):
+            # Only a single dimension
+            if dim > 1:
+                raise Exception('Only a single dimension found for this scan.')
+            else:
+                key = list(this_vars_dict.keys())[var_idx - 1]
+                return utils.obtain_recursive_key_and_value(this_vars_dict, "")
+        else:
+            this_vars_dict = this_vars_dict[dim - 1]
+            key = list(this_vars_dict.keys())[var_idx - 1]
+            return utils.obtain_recursive_key_and_value(this_vars_dict[key], key)
+        
+    def get_fixed_param(self, scan_idx):
+        # Gets the fixed parameters for a given scan
+        scgrp = self.data['Scan']['ScanGroup']
+        nscans = int(len(scgrp['scans']['baseidx']))
+        if scan_idx > nscans:
+            raise Exception('scan_idx out of range. Total: ' + str(nscans) + ' scans.')
+        this_scan = self._get_full_scan(scan_idx)
+        return this_scan['params']
 
-    def load(self, seq_idxs=-1):
-        """
-            Loads in images or logicals depending on the current LoadStatus
+    def _get_full_scan(self, scan_idx):
+        # Gets the full scan for scan_idx in the ScanGroup. This merges the fixed parameters and the variable parameters
+        # giving precedence to the non-base scan
+        scgrp = self.data['Scan']['ScanGroup']
+        nscans = int(len(scgrp['scans']['baseidx']))
+        if scan_idx > nscans:
+            raise Exception('scan_idx out of range. Total: ' + str(nscans) + ' scans.')
+        this_base_idx = scgrp['scans']['baseidx'][scan_idx - 1]
+        this_params = scgrp['scans']['params'][scan_idx - 1]
+        this_vars = scgrp['scans']['vars'][scan_idx - 1]
+        base_params = scgrp['base']['params']
+        base_vars = scgrp['base']['vars']
+        # Merge base and this scan
+        if isinstance(this_params, dict) and isinstance(base_params, dict):
+            merged_params = utils.merge_dicts_with_lists(base_params, this_params)
+        elif isinstance(this_params, dict):
+            merged_params = this_params
+        elif isinstance(base_params, dict):
+            merged_params = base_params
+        else:
+            merged_params = base_params # Maintain the same weird convention for an empty MATLAB struct
+        if isinstance(this_vars, dict) and isinstance(base_vars, dict):
+            merged_vars = utils.merge_dicts_with_lists(base_vars, this_vars)
+        elif isinstance(this_vars, dict):
+            merged_vars = this_vars
+        elif isinstance(base_vars, dict):
+            merged_vars = base_vars
+        else:
+            merged_vars = base_vars # Maintain the same weird convention for an empty MATLAB struct
+        return {'base_idx': this_base_idx, 'params': merged_params, 'vars': merged_vars}
 
-            Args:
-                seq_idxs:  the idxs of the sequences that need to be loaded (1 indexed)
-            Returns:
-                None
-            Raises:
-                None
-
-        """
-        if seq_idxs == -1:
-            seq_idxs = np.array([i + 1 for i in range(self.num_seqs)])
-        if self.load_status == LoadStatus.LogicalsLoaded or self.load_status == LoadStatus.AllLoaded:
-            print('Loading Logicals')
-            self._load_logicals(seq_idxs)
-        if self.load_status == LoadStatus.ImgLoaded or self.load_status == LoadStatus.AllLoaded:
-            print('Loading Images')
-            self._load_imgs(seq_idxs)
-    
     def _load_logicals(self, seq_idxs : np.ndarray):
         """
             Private method that loads logicals into the class
@@ -370,5 +373,5 @@ class SingleData:
         if self.imgs is None:
             self.imgs = temp_imgs
         else:
-            self.imgs = np.concatenate((self.imgs, temp_logicals), axis = 3)
+            self.imgs = np.concatenate((self.imgs, temp_imgs), axis = 3)
             self.seq_idxs_img = np.concatenate((self.seq_idxs_img, seq_idxs), axis = 0)
