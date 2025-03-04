@@ -1,5 +1,27 @@
 import h5py
 import numpy as np
+import numbers
+from matplotlib import pyplot as plt
+
+def cvt_arg(arg, val):
+    # converts an input argument of various forms to the expected numpy array up to val, assuming one indexing
+    if arg is None:
+        return np.array([i + 1 for i in range(val)])
+    if isinstance(arg, numbers.Number):
+        return np.array([arg])
+    if isinstance(arg, list):
+        return np.array(arg)
+    if isinstance(arg, np.ndarray):
+        return arg
+
+def get_colors(num_colors, cmap='rainbow_r'):
+    this_cmap = plt.get_cmap(cmap)
+    color_indices = np.linspace(0, 1, num_colors)
+    colors = [this_cmap(i) for i in color_indices]
+    return colors
+
+def is_number(var):
+    return isinstance(var, numbers.Number)
 
 def cvt_to_str(file: h5py._hl.files.File, fieldname: str):
     """
@@ -71,6 +93,9 @@ def cvt_to_dict(file: h5py._hl.files.File, fieldname :str  = ""):
                         modify_list(temp_result, cvt_ref_to_data, file)
                     else:
                         temp_result = cvt_ref_to_data(temp_result, file)
+                elif temp_result.dtype == np.uint16:
+                    # convert if it's a string
+                    temp_result = cvt_unicode_to_str(temp_result)
             result[key] = temp_result
         elif isinstance(item, h5py.Group):  # If it's a group, recurse into it
             new_fieldname = fieldname + '/' + key
@@ -102,6 +127,8 @@ def cvt_ref_to_data(ref: h5py.h5r.Reference, file: h5py._hl.files.File):
                     modify_list(result, cvt_ref_to_data, file)
                 else:
                     result = cvt_ref_to_data(result, file)
+            elif result.dtype == np.uint16:
+                result = cvt_unicode_to_str(result)
     elif isinstance(result, h5py.Group):
         result = cvt_to_dict(file, ref_name)
     return result
@@ -143,6 +170,18 @@ def merge_lists_with_dicts(list1, list2):
             else:
                 final_list[i] = list2[i]
     return final_list
+
+def remove_repeated_keys(dict1, dict2):
+    dict1_copy = dict1.copy()
+    for key in dict2.keys():
+        if key in dict1_copy:
+            if isinstance(dict1_copy[key], dict) and isinstance(dict2[key], dict):
+                dict1_copy[key] = remove_repeated_keys(dict1_copy[key], dict2[key]) 
+            else:
+                # Don't recurse and just remove from dict1. 
+                dict1_copy.pop(key)
+
+    return dict1_copy
 
 def obtain_recursive_key_and_value(val, key_str = ""):
     # This function assumes that it can be a nested dictionary, but only one key at each step.
